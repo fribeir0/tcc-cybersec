@@ -1,0 +1,40 @@
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+api:
+  dashboard: false
+entryPoints:
+  web:
+    address: :80
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+    forwardedHeaders:
+      insecure: true
+  websecure:
+    address: :443
+  metrics:
+    address: :8082
+providers:
+  docker:
+    exposedByDefault: false
+    network: hospital-edge
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+experimental:
+  plugins:
+    modsecurity:
+      moduleName: github.com/acouvreur/traefik-modsecurity-plugin
+      version: v1.3.0
+accessLog:
+  format: json
+  filePath: /logs/access.json
+log:
+  format: json
+  level: INFO
+metrics:
+  prometheus:
+    entryPoint: metrics

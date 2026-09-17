@@ -1,0 +1,12 @@
+services:
+  app-agendamento:
+    build: ./apps/agendamento
+    restart: unless-stopped
+    environment:
+      APP_NAME: agendamento
+      OTEL_SERVICE_NAME: legacy-agendamento
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      APP_LOG_FILE: /logs/app.json
+    volumes: [app_agendamento_logs:/logs]
+    networks: [apps, observability]

@@ -1,0 +1,63 @@
+receivers:
+  filelog/applications:
+    include:
+      - /var/log/apps/*/app.json
+    start_at: end
+    storage: file_storage
+    operators:
+      - type: json_parser
+        parse_to: body
+  filelog/traefik:
+    include: [/var/log/traefik/access.json]
+    start_at: end
+    storage: file_storage
+    operators:
+      - type: json_parser
+        parse_to: body
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+  batch: {}
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889
+  syslog/graylog:
+    endpoint: graylog
+    port: 1514
+    network: tcp
+    protocol: rfc5424
+    retry_on_failure:
+      enabled: true
+    sending_queue:
+      enabled: true
+      storage: file_storage
+
+extensions:
+  file_storage:
+    directory: /var/lib/otelcol
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [filelog/applications, filelog/traefik]
+      processors: [memory_limiter, batch]
+      exporters: [syslog/graylog]
+  extensions: [file_storage]

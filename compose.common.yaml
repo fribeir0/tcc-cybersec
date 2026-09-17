@@ -1,0 +1,12 @@
+name: secure-legacy-hospital
+networks:
+  edge: {name: hospital-edge}
+  identity: {name: hospital-identity}
+  apps: {name: hospital-apps}
+  observability: {name: hospital-observability}
+  logging: {name: hospital-logging}
+volumes:
+  app_agendamento_logs: {name: hospital-app-agendamento-logs}
+  app_exames_logs: {name: hospital-app-exames-logs}
+  traefik_logs: {name: hospital-traefik-logs}
+  traefik_certs: {name: hospital-traefik-certs}

@@ -1,0 +1,8 @@
+# Orquestrador: sobe todos os domínios sem duplicar serviços nos arquivos filhos.
+include:
+  - path: compose.common.yaml
+  - path: compose.observability.yaml
+  - path: compose.identity.yaml
+  - path: compose.edge.yaml
+  - path: compose.app-agendamento.yaml
+  - path: compose.app-exames.yaml

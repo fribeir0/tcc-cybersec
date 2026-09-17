@@ -1,0 +1,136 @@
+services:
+  mongodb:
+    image: mongo:6.0.18
+    restart: unless-stopped
+    volumes: [graylog_mongodb:/data/db]
+    networks: [logging]
+
+  opensearch:
+    image: opensearchproject/opensearch:2.15.0
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms1g -Xmx1g
+      plugins.security.ssl.http.enabled: "false"
+      plugins.security.disabled: "true"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_INITIAL_ADMIN_PASSWORD:?defina no .env}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - graylog_opensearch:/usr/share/opensearch/data
+    networks: [logging]
+  graylog:
+    image: graylog/graylog:7.1
+    restart: unless-stopped
+    entrypoint: /usr/bin/tini -- wait-for-it opensearch:9200 -- /docker-entrypoint.sh
+    environment:
+      GRAYLOG_HTTP_BIND_ADDRESS: 0.0.0.0:9000
+      GRAYLOG_HTTP_EXTERNAL_URI: http://graylog.${DOMAIN}/
+      GRAYLOG_ELASTICSEARCH_HOSTS: http://opensearch:9200
+      GRAYLOG_MONGODB_URI: mongodb://mongodb:27017/graylog
+      GRAYLOG_PASSWORD_SECRET: ${GRAYLOG_PASSWORD_SECRET:?defina no .env}
+      GRAYLOG_ROOT_PASSWORD_SHA2: ${GRAYLOG_ROOT_PASSWORD_SHA2:?defina no .env}
+    volumes: [graylog_data:/usr/share/graylog/data]
+    networks: [edge, logging, observability]
+    depends_on: [mongodb]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.graylog.rule=Host(`graylog.hospital.lab`)
+      - traefik.http.routers.graylog.entrypoints=websecure
+      - traefik.http.routers.graylog.tls=true
+      - traefik.http.services.graylog.loadbalancer.server.port=9000
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.138.0
+    restart: unless-stopped
+    command: [--config=/etc/otelcol-contrib/config.yaml]
+    volumes:
+      - ./infra/otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - app_agendamento_logs:/var/log/apps/agendamento:ro
+      - app_exames_logs:/var/log/apps/exames:ro
+      - traefik_logs:/var/log/traefik:ro
+      - otel_storage:/var/lib/otelcol
+    networks: [observability, logging]
+    depends_on:
+      tempo:
+        condition: service_started
+      graylog:
+        condition: service_started
+      otel-storage-init:
+        condition: service_completed_successfully
+  # A imagem do Collector executa sem root; prepara o volume persistente para ela.
+  otel-storage-init:
+    image: busybox:1.37
+    restart: "no"
+    user: "0:0"
+    command: [sh, -c, "mkdir -p /var/lib/otelcol && chown -R 10001:10001 /var/lib/otelcol"]
+    volumes:
+      - otel_storage:/var/lib/otelcol
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    restart: unless-stopped
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.path=/prometheus]
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks: [edge, observability]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.prometheus.rule=Host(`prometheus.hospital.lab`)
+      - traefik.http.routers.prometheus.entrypoints=websecure
+      - traefik.http.routers.prometheus.tls=true
+      - traefik.http.services.prometheus.loadbalancer.server.port=9090
+  tempo:
+    image: grafana/tempo:2.8.2
+    restart: unless-stopped
+    command: [-config.file=/etc/tempo.yaml]
+    volumes:
+      - ./infra/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    networks: [observability]
+  grafana:
+    image: grafana/grafana:12.1.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: change-before-production
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: https://grafana.hospital.lab/
+      GF_AUTH_GENERIC_OAUTH_ENABLED: true
+      GF_AUTH_GENERIC_OAUTH_NAME: Authentik
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: $GRAFANA_CLIENT_ID
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: $GRAFANA_SECRET
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: https://auth.hospital.lab/application/o/authorize/
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: http://authentik-server:9000/application/o/token/
+      GF_AUTH_GENERIC_OAUTH_API_URL: http://authentik-server:9000/application/o/userinfo/
+      GF_AUTH_GENERIC_OAUTH_SCOPES: openid profile email
+      GF_AUTH_GENERIC_OAUTH_LOGIN_ATTRIBUTE_PATH: sub
+      GF_AUTH_GENERIC_OAUTH_NAME_ATTRIBUTE_PATH: name
+      GF_AUTH_GENERIC_OAUTH_EMAIL_ATTRIBUTE_PATH: email
+      GF_AUTH_GENERIC_OAUTH_AUTO_LOGIN: true
+      GF_AUTH_GENERIC_OAUTH_TLS_SKIP_VERIFY_INSECURE: "false"
+      SSL_CERT_FILE: /etc/grafana/traefik-ca/tls.crt
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - traefik_certs:/etc/grafana/traefik-ca:ro
+    networks: [edge, observability]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.grafana.rule=Host(`grafana.hospital.lab`)
+      - traefik.http.routers.grafana.entrypoints=websecure
+      - traefik.http.routers.grafana.tls=true
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+volumes:
+  graylog_mongodb: {}
+  graylog_opensearch: {}
+  graylog_data: {}
+  prometheus_data: {}
+  tempo_data: {}
+  grafana_data: {}
+  otel_storage: {}

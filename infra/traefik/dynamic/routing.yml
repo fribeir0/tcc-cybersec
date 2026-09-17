@@ -1,0 +1,32 @@
+http:
+  services:
+    authentik-proxy:
+      loadBalancer:
+        servers:
+          - url: http://authentik-proxy:9000
+  middlewares:
+    waf:
+      plugin:
+        modsecurity:
+          modSecurityUrl: http://waf:8080
+          timeoutMillis: 2000
+          maxBodySize: 10485760
+    security-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        referrerPolicy: no-referrer
+  routers:
+    agendamento:
+      rule: Host(`agendamento.hospital.lab`)
+      entryPoints: [websecure]
+      middlewares: [waf, security-headers]
+      service: authentik-proxy
+      tls: {}
+    exames:
+      rule: Host(`exames.hospital.lab`)
+      entryPoints: [websecure]
+      middlewares: [waf, security-headers]
+      service: authentik-proxy
+      tls: {}

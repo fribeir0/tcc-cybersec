@@ -1,0 +1,12 @@
+services:
+  app-exames:
+    build: ./apps/exames
+    restart: unless-stopped
+    environment:
+      APP_NAME: exames
+      OTEL_SERVICE_NAME: legacy-exames
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      APP_LOG_FILE: /logs/app.json
+    volumes: [app_exames_logs:/logs]
+    networks: [apps, observability]
