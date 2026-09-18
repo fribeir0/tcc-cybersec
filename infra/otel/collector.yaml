@@ -5,6 +5,9 @@ receivers:
     start_at: end
     storage: file_storage
     operators:
+      - type: copy
+        from: body
+        to: attributes.message
       - type: json_parser
         parse_to: body
   filelog/traefik:
@@ -12,6 +15,9 @@ receivers:
     start_at: end
     storage: file_storage
     operators:
+      - type: copy
+        from: body
+        to: attributes.message
       - type: json_parser
         parse_to: body
   otlp:
@@ -24,6 +30,11 @@ processors:
   memory_limiter:
     check_interval: 1s
     limit_mib: 256
+  transform/log_timestamp:
+    error_mode: ignore
+    log_statements:
+      # Usa o horario de coleta quando o registro nao possui timestamp.
+      - set(log.time, log.observed_time) where log.time_unix_nano == 0
   batch: {}
 exporters:
   otlp/tempo:
@@ -37,6 +48,9 @@ exporters:
     port: 1514
     network: tcp
     protocol: rfc5424
+    # O input Syslog TCP interno do Graylog recebe texto sem TLS.
+    tls:
+      insecure: true
     retry_on_failure:
       enabled: true
     sending_queue:
@@ -58,6 +72,6 @@ service:
       exporters: [prometheus]
     logs:
       receivers: [filelog/applications, filelog/traefik]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, transform/log_timestamp, batch]
       exporters: [syslog/graylog]
   extensions: [file_storage]

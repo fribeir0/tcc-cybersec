@@ -1,6 +1,6 @@
 services:
   mongodb:
-    image: mongo:6.0.18
+    image: mongo:7.0
     restart: unless-stopped
     volumes: [graylog_mongodb:/data/db]
     networks: [logging]
