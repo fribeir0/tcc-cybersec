@@ -20,6 +20,21 @@ receivers:
         to: attributes.message
       - type: json_parser
         parse_to: body
+  filelog/waf:
+    include: [/var/log/waf/audit.json]
+    start_at: beginning
+    storage: file_storage
+    max_log_size: 1MiB
+    multiline:
+      line_start_pattern: '^\{'
+    force_flush_period: 2s
+    attributes:
+      appname: modsecurity
+      hostname: waf
+    operators:
+      - type: copy
+        from: body
+        to: attributes.message
   otlp:
     protocols:
       grpc:
@@ -35,6 +50,8 @@ processors:
     log_statements:
       # Usa o horario de coleta quando o registro nao possui timestamp.
       - set(log.time, log.observed_time) where log.time_unix_nano == 0
+      # Mantém cada auditoria em uma linha no Syslog TCP, sem perder o JSON.
+      - replace_pattern(log.attributes["message"], "[\r\n]+", " ") where log.attributes["appname"] == "modsecurity"
   batch: {}
 exporters:
   otlp/tempo:
@@ -71,7 +88,7 @@ service:
       processors: [memory_limiter, batch]
       exporters: [prometheus]
     logs:
-      receivers: [filelog/applications, filelog/traefik]
+      receivers: [filelog/applications, filelog/traefik, filelog/waf]
       processors: [memory_limiter, transform/log_timestamp, batch]
       exporters: [syslog/graylog]
   extensions: [file_storage]

@@ -1,0 +1,5 @@
+# Um IPv4, IPv6 ou CIDR por linha; comentários em linhas separadas.
+# Lista inicialmente vazia. Exemplos abaixo estão desativados.
+# 192.0.2.10
+# 198.51.100.0/24
+# 2001:db8::10

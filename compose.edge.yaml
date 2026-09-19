@@ -32,16 +32,32 @@ services:
     image: owasp/modsecurity-crs:apache
     restart: unless-stopped
     environment:
-      # O plugin consulta o WAF; este backend é somente o alvo interno de validação do CRS.
       BACKEND: http://waf-backend:80
       PARANOIA: "1"
       ANOMALY_INBOUND: "5"
       REMOTEIP_HEADER: X-Real-IP
       REMOTEIP_INT_PROXY: 172.16.0.0/12
+      MODSEC_RULE_ENGINE: "On"
+      MODSEC_AUDIT_ENGINE: RelevantOnly
+      MODSEC_AUDIT_LOG: /var/log/waf/audit.json
+      MODSEC_AUDIT_LOG_FORMAT: JSON
+      MODSEC_AUDIT_LOG_TYPE: Serial
+      MODSEC_AUDIT_LOG_PARTS: AHZ
+    volumes:
+      - ./infra/waf/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:ro
+      - ./infra/waf/blocklists:/etc/modsecurity-blocklists:ro
+      - waf_logs:/var/log/waf
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     networks: [edge]
     depends_on:
       waf-backend:
         condition: service_healthy
+      waf-log-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "httpd -t"]
       interval: 10s
@@ -57,3 +73,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 6
+  waf-log-init:
+    image: owasp/modsecurity-crs:apache
+    restart: "no"
+    user: "0:0"
+    entrypoint: [/bin/sh, -c]
+    command:
+      - "mkdir -p /var/log/waf && touch /var/log/waf/audit.json && chown httpd:httpd /var/log/waf /var/log/waf/audit.json && chmod 0755 /var/log/waf && chmod 0644 /var/log/waf/audit.json"
+    volumes:
+      - waf_logs:/var/log/waf
+volumes:
+  waf_logs: {}

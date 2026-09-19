@@ -54,6 +54,7 @@ services:
       - app_agendamento_logs:/var/log/apps/agendamento:ro
       - app_exames_logs:/var/log/apps/exames:ro
       - traefik_logs:/var/log/traefik:ro
+      - waf_logs:/var/log/waf:ro
       - otel_storage:/var/lib/otelcol
     networks: [observability, logging]
     depends_on:
@@ -63,7 +64,8 @@ services:
         condition: service_started
       otel-storage-init:
         condition: service_completed_successfully
-  # A imagem do Collector executa sem root; prepara o volume persistente para ela.
+      waf-log-init:
+        condition: service_completed_successfully
   otel-storage-init:
     image: busybox:1.37
     restart: "no"
