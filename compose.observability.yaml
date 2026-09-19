@@ -46,6 +46,8 @@ services:
       - traefik.http.routers.graylog.tls=true
       - traefik.http.services.graylog.loadbalancer.server.port=9000
   otel-collector:
+    ports:
+      - '127.0.0.1:1515:1515/udp'
     image: otel/opentelemetry-collector-contrib:0.138.0
     restart: unless-stopped
     command: [--config=/etc/otelcol-contrib/config.yaml]

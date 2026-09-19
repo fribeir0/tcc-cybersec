@@ -11,6 +11,7 @@ services:
       - traefik_logs:/logs
       - traefik_certs:/certs:ro
     networks:
+      observability: {}
       edge:
         aliases:
           - auth.hospital.lab

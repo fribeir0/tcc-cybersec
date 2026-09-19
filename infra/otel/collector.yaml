@@ -1,4 +1,12 @@
 receivers:
+  syslog/authentik:
+    udp:
+      listen_address: 0.0.0.0:1515
+    protocol: rfc5424
+    operators:
+      - type: copy
+        from: attributes.appname
+        to: attributes.hostname
   filelog/applications:
     include:
       - /var/log/apps/*/app.json
@@ -14,12 +22,26 @@ receivers:
     include: [/var/log/traefik/access.json]
     start_at: end
     storage: file_storage
+    attributes:
+      hostname: traefik-access
+      appname: traefik-access
     operators:
       - type: copy
         from: body
         to: attributes.message
       - type: json_parser
         parse_to: body
+  filelog/traefik_internal:
+    include: [/var/log/traefik/traefik.json]
+    start_at: beginning
+    storage: file_storage
+    attributes:
+      hostname: traefik-internal
+      appname: traefik-internal
+    operators:
+      - type: copy
+        from: body
+        to: attributes.message
   filelog/waf:
     include: [/var/log/waf/audit.json]
     start_at: beginning
@@ -88,7 +110,7 @@ service:
       processors: [memory_limiter, batch]
       exporters: [prometheus]
     logs:
-      receivers: [filelog/applications, filelog/traefik, filelog/waf]
+      receivers: [filelog/applications, filelog/traefik, filelog/traefik_internal, filelog/waf, syslog/authentik]
       processors: [memory_limiter, transform/log_timestamp, batch]
       exporters: [syslog/graylog]
   extensions: [file_storage]

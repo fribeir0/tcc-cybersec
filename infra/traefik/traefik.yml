@@ -35,6 +35,17 @@ accessLog:
 log:
   format: json
   level: INFO
+  filePath: /logs/traefik.json
+  maxSize: 20
+  maxBackups: 5
+  maxAge: 7
 metrics:
   prometheus:
     entryPoint: metrics
+tracing:
+  serviceName: traefik
+  sampleRate: 1.0
+  otlp:
+    grpc:
+      endpoint: otel-collector:4317
+      insecure: true

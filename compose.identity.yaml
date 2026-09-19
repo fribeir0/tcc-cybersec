@@ -14,10 +14,19 @@ services:
     volumes: [authentik_redis:/data]
     networks: [identity]
   authentik-server:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: udp://127.0.0.1:1515
+        syslog-format: rfc5424micro
+        tag: authentik-server
+        mode: non-blocking
+        max-buffer-size: 4m
     image: ghcr.io/goauthentik/server:2025.10.2
     restart: unless-stopped
     command: server
     environment: &authentik_env
+      AUTHENTIK_LOG_LEVEL: info
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?defina no .env}
       AUTHENTIK_REDIS__HOST: authentik-redis
       AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
@@ -35,6 +44,14 @@ services:
       - traefik.http.routers.authentik.tls=true
       - traefik.http.services.authentik.loadbalancer.server.port=9000
   authentik-worker:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: udp://127.0.0.1:1515
+        syslog-format: rfc5424micro
+        tag: authentik-worker
+        mode: non-blocking
+        max-buffer-size: 4m
     image: ghcr.io/goauthentik/server:2025.10.2
     restart: unless-stopped
     command: worker
@@ -42,9 +59,18 @@ services:
     volumes: [/var/run/docker.sock:/var/run/docker.sock, authentik_media:/media, authentik_templates:/templates]
     networks: [identity]
   authentik-proxy:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: udp://127.0.0.1:1515
+        syslog-format: rfc5424micro
+        tag: authentik-proxy
+        mode: non-blocking
+        max-buffer-size: 4m
     image: ghcr.io/goauthentik/proxy:2025.10.2
     restart: unless-stopped
     environment:
+      AUTHENTIK_LOG_LEVEL: info
       AUTHENTIK_HOST: http://authentik-server:9000
       AUTHENTIK_HOST_BROWSER: https://auth.hospital.lab
       AUTHENTIK_INSECURE: "true"
