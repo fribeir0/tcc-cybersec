@@ -1,4 +1,4 @@
-# Orquestrador: sobe todos os domínios sem duplicar serviços nos arquivos filhos.
+# Orquestrador: sobe todos os outros composes com so 1 comando
 include:
   - path: compose.common.yaml
   - path: compose.observability.yaml
