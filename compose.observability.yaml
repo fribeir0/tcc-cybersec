@@ -96,7 +96,7 @@ services:
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
-    tmpfs: [/tmp:rw,noexec,nosuid,size=64m]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=64m"]
     stop_grace_period: 60s
     mem_limit: ${TEMPO_MEMORY_LIMIT:-2g}
     cpus: ${TEMPO_CPU_LIMIT:-2.0}
