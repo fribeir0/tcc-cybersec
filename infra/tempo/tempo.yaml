@@ -1,6 +1,11 @@
 server:
   http_listen_port: 3200
+  log_level: info
+  log_format: json
+  graceful_shutdown_timeout: 30s
 distributor:
+  max_attribute_bytes: 2048
+  retry_after_on_resource_exhausted: 1s
   receivers:
     otlp:
       protocols:
@@ -20,3 +25,38 @@ storage:
       path: /var/tempo/wal
     local:
       path: /var/tempo/blocks
+
+metrics_generator:
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+        send_exemplars: true
+  traces_storage:
+    path: /var/tempo/generator/traces
+  processor:
+    service_graphs:
+      # atrtibutes to generate service destination
+      peer_attributes: [peer.service, server.address, net.peer.name, db.name, db.system]
+      enable_virtual_node_label: true
+    span_metrics: {}
+    local_blocks:
+      filter_server_spans: false
+      flush_to_storage: true
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [local-blocks, service-graphs, span-metrics]
+      max_active_series: 20000
+
+querier:
+  max_concurrent_queries: 4
+query_frontend:
+  search:
+    max_duration: 48h
+    max_result_limit: 1000
+  metrics:
+    max_duration: 24h
+    concurrent_jobs: 4
+    max_response_series: 1000
