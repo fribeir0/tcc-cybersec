@@ -15,13 +15,11 @@ services:
     networks: [identity]
   authentik-server:
     logging:
-      driver: syslog
+      driver: json-file
       options:
-        syslog-address: udp://127.0.0.1:1515
-        syslog-format: rfc5424micro
-        tag: authentik-server
-        mode: non-blocking
-        max-buffer-size: 4m
+        max-size: "100m"
+        max-file: "10"
+        labels: "observability.logs"
     image: ghcr.io/goauthentik/server:2025.10.2
     restart: unless-stopped
     command: server
@@ -38,6 +36,7 @@ services:
     volumes: [authentik_media:/media, authentik_templates:/templates]
     networks: [edge, identity]
     labels:
+      - observability.logs=authentik
       - traefik.enable=true
       - traefik.http.routers.authentik.rule=Host(`auth.hospital.lab`)
       - traefik.http.routers.authentik.entrypoints=websecure
@@ -45,13 +44,13 @@ services:
       - traefik.http.services.authentik.loadbalancer.server.port=9000
   authentik-worker:
     logging:
-      driver: syslog
+      driver: json-file
       options:
-        syslog-address: udp://127.0.0.1:1515
-        syslog-format: rfc5424micro
-        tag: authentik-worker
-        mode: non-blocking
-        max-buffer-size: 4m
+        max-size: "100m"
+        max-file: "10"
+        labels: "observability.logs"
+    labels:
+      - observability.logs=authentik
     image: ghcr.io/goauthentik/server:2025.10.2
     restart: unless-stopped
     command: worker
@@ -60,13 +59,11 @@ services:
     networks: [identity]
   authentik-proxy:
     logging:
-      driver: syslog
+      driver: json-file
       options:
-        syslog-address: udp://127.0.0.1:1515
-        syslog-format: rfc5424micro
-        tag: authentik-proxy
-        mode: non-blocking
-        max-buffer-size: 4m
+        max-size: "100m"
+        max-file: "10"
+        labels: "observability.logs"
     image: ghcr.io/goauthentik/proxy:2025.10.2
     restart: unless-stopped
     environment:
@@ -77,6 +74,7 @@ services:
       AUTHENTIK_TOKEN: ${AUTHENTIK_OUTPOST_TOKEN:-bootstrap-pending}
     networks: [edge, identity, apps]
     labels:
+      - observability.logs=authentik
       - traefik.enable=true
       - traefik.http.services.authentik-proxy.loadbalancer.server.port=9000
 volumes:

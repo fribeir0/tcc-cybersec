@@ -1,12 +1,26 @@
 receivers:
-  syslog/authentik:
-    udp:
-      listen_address: 0.0.0.0:1515
-    protocol: rfc5424
+  filelog/authentik:
+    include: [/var/lib/docker/containers/*/*-json.log]
+    start_at: beginning
+    include_file_path: true
+    storage: file_storage
+    attributes:
+      hostname: authentik
+      appname: authentik
     operators:
+      - type: json_parser
+        parse_to: attributes.docker
+      - type: filter
+        expr: 'attributes.docker.attrs == nil or attributes.docker.attrs["observability.logs"] != "authentik"'
+      - type: container
+      - type: remove
+        field: attributes.docker
       - type: copy
-        from: attributes.appname
-        to: attributes.hostname
+        from: body
+        to: attributes.message
+      - type: add
+        field: resource["service.name"]
+        value: authentik
   filelog/applications:
     include:
       - /var/log/apps/*/app.json
@@ -87,7 +101,6 @@ exporters:
     port: 1514
     network: tcp
     protocol: rfc5424
-    # O input Syslog TCP interno do Graylog recebe texto sem TLS.
     tls:
       insecure: true
     retry_on_failure:
@@ -110,7 +123,7 @@ service:
       processors: [memory_limiter, batch]
       exporters: [prometheus]
     logs:
-      receivers: [filelog/applications, filelog/traefik, filelog/traefik_internal, filelog/waf, syslog/authentik]
+      receivers: [filelog/applications, filelog/traefik, filelog/traefik_internal, filelog/waf, filelog/authentik]
       processors: [memory_limiter, transform/log_timestamp, batch]
       exporters: [syslog/graylog]
   extensions: [file_storage]
